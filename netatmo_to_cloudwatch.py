@@ -50,31 +50,13 @@ def fetch_weather_data():
     for station_key in weather_data.stations:
         station = weather_data.stations[station_key]
 
-        station_name = get_data("module_name", station)
-
-        # The time is returned in epoch format
-        station_time = get_dashboard_data("time_utc", station)
-
         # For each metric associated with the station that we want to send to CloudWatch
         # we append each metric to the list
-        station_temp = get_dashboard_data("Temperature", station)
-        metric_data.append(
-            create_metric_data("Temperature", station_name, station_temp, station_time))
-
-        station_co2 = get_dashboard_data("CO2", station)
-        metric_data.append(
-            create_metric_data("CO2", station_name, station_co2, station_time))
-
-        station_humidity = get_dashboard_data("Humidity", station)
-        metric_data.append(
-            create_metric_data("Humidity", station_name, station_humidity, station_time))
-
-        station_noise = get_dashboard_data("Noise", station)
-        metric_data.append(create_metric_data("Noise", station_name, station_noise, station_time))
-
-        station_pressure = get_dashboard_data("Pressure", station)
-        metric_data.append(
-            create_metric_data("Air_Pressure", station_name, station_pressure, station_time))
+        append_metric_data(metric_data, "Temperature", "Temperature", station)
+        append_metric_data(metric_data, "CO2", "CO2", station)
+        append_metric_data(metric_data, "Humidity", "Humidity", station)
+        append_metric_data(metric_data, "Noise", "Noise", station)
+        append_metric_data(metric_data, "Air_Pressure", "Pressure", station)
 
         # Now iterate over the modules; these are the indoors and outdoors modules.
         # Please note that the wind module has yet to be added.
@@ -84,57 +66,46 @@ def fetch_weather_data():
             if not module["reachable"] :
                 continue
 
-            module_name = get_data("module_name", module)
-            module_time = get_dashboard_data("time_utc", module)
-
             # The rf_status is the signal strength.
             # Please refer to https://dev.netatmo.com/apidocumentation/weather
             # for an explaination of the values.
-            module_signal = get_data("rf_status", module)
-            metric_data.append(
-                create_metric_data("Signal_Strength", module_name, module_signal, module_time))
+            append_metric_data(metric_data, "Signal_Strength", "rf_status", module)
 
             # The battery_vp is a number to indicate the health of the battery.
             # Depending on the module, the values will mean a different status.
             # Please refer to https://dev.netatmo.com/apidocumentation/weather
             # for an explaination of the values.
-            module_battery = get_data("battery_vp", module)
-            metric_data.append(
-                create_metric_data("Battery_Status", module_name, module_battery, module_time))
+            append_metric_data(metric_data, "Battery_Status", "battery_vp", module)
 
             # This is for indoor and outdoor temperature modules
             if "Temperature" in module["data_type"]:
-                module_temperature = get_dashboard_data("Temperature", module)
-                metric_data.append(
-                    create_metric_data("Temperature", module_name, module_temperature, module_time))
-
-                module_humidity = get_dashboard_data("Humidity", module)
-                metric_data.append(
-                    create_metric_data("Humidity", module_name, module_humidity, module_time))
+                append_metric_data(metric_data, "Temperature", "Temperature", module)
+                append_metric_data(metric_data, "Humidity", "Humidity", module)
 
             # Only the indoor modules have CO2 sensor
             if "CO2" in module["data_type"]:
-                module_co2 = get_dashboard_data("CO2", module)
-                metric_data.append(create_metric_data("CO2", module_name, module_co2, module_time))
+                append_metric_data(metric_data, "CO2", "CO2", module)
 
             # Rain gauage
             if "Rain" in module["data_type"]:
-                module_rain = get_dashboard_data("Rain", module)
-                metric_data.append(
-                    create_metric_data("Rain", module_name, module_rain, module_time))
-
-                module_rain_1hour = get_dashboard_data("sum_rain_1", module)
-                metric_data.append(
-                    create_metric_data("Rain_1_hour", module_name, module_rain_1hour, module_time))
-
-                module_rain_24hour = get_dashboard_data("sum_rain_24", module)
-                metric_data.append(
-                    create_metric_data(
-                        "Rain_24_hours",
-                        module_name,
-                        module_rain_24hour,
-                        module_time))
+                append_metric_data(metric_data, "Rain", "Rain", module)
+                append_metric_data(metric_data, "Rain_1_hour", "sum_rain_1", module)
+                append_metric_data(metric_data, "Rain_24_hours", "sum_rain_24", module)
     return metric_data
+
+def append_metric_data(metric_data, metric_name, metric_dashboard_key, source):
+    """Helper method get the data for each metric
+    """
+    name = get_data("module_name", source)
+
+    # The time is returned in epoch format
+    time = get_dashboard_data("time_utc", source)
+
+    metric_data.append(
+            create_metric_data(metric_name,
+                               name,
+                               get_dashboard_data(metric_dashboard_key, source),
+                               time))
 
 def get_dashboard_data(item_name, source):
     """Helper method to parse the dashboard data from whic contains the weather information
