@@ -1,7 +1,10 @@
-"""Import the netatmo library"""
+"""Import the pyatmo and the AWS boto3 library"""
 import pyatmo
 import boto3
 
+MAXIMUM_METRICS_PER_CALL = 20
+
+# pylint: disable=unused-argument
 def lambda_handler(event, context):
     """This is the main entry point into the program for the Lambda function.
     This python script will extract the weather station data for your Netatmo
@@ -10,7 +13,6 @@ def lambda_handler(event, context):
     """
     data = fetch_weather_data()
     send_data_to_cloudwatch(data)
-
 
 def fetch_weather_data():
     """This method will fetch the weather data from Netatmo"""
@@ -74,7 +76,8 @@ def fetch_weather_data():
         metric_data.append(
             create_metric_data("Air_Pressure", station_name, station_pressure, station_time))
 
-        # Now iterate over the modules; these are the indoors and outdoors modules
+        # Now iterate over the modules; these are the indoors and outdoors modules.
+        # Please note that the wind module has yet to be added.
         for module in station["modules"]:
             # Battery is dead, no wifi signal or there is a problem with the module.
             # In this case the module is not reporting any data so there is nothing to collect.
@@ -131,8 +134,6 @@ def fetch_weather_data():
                         module_name,
                         module_rain_24hour,
                         module_time))
-
-            # TODO: Wind gauge. I need to get some new batteries for mine....
     return metric_data
 
 def get_dashboard_data(item_name, source):
@@ -175,8 +176,7 @@ def send_data_to_cloudwatch(event_data):
     # Loop over all the event data that we have.
     # We can only send in 20 metrics with each call.
     while current_position < item_count:
-        # TODO: refactor out the 20
-        end_position = current_position + 20 - 1
+        end_position = current_position + MAXIMUM_METRICS_PER_CALL - 1
 
         # Check to ensure that the range is not outside of the list length
         if end_position >= item_count:
@@ -192,8 +192,8 @@ def send_data_to_cloudwatch(event_data):
             Namespace = 'Deansystems/Netatmo'
         )
 
-        # Move the postion on to the next 20 events
-        current_position += 20
+        # Move the postion on to the next x events
+        current_position += MAXIMUM_METRICS_PER_CALL
 
         print(response)
 
